@@ -16,7 +16,7 @@ return new class extends Migration
         Schema::create('apps', function (Blueprint $table) {
             $table->id();
             $table->timestamps();
-            $table->string('aplication_name');
+            $table->string('application_name');
             $table->string('description');
             $table->string('download_link');
             $table->decimal('qualification');
