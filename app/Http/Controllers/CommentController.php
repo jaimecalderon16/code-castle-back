@@ -4,33 +4,31 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\Comment;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 
 class CommentController extends Controller
 {
-    //obtener todos los comentarios
-    public function index(){
-        $comments=Comment::all();
+    //obtener todos los comentarios de la app
+    public function index($id){
+
+        $comments=Comment::Where('app_id', $id)->with(['user'])->get();
         return response()->json(['comments' => $comments]);
     }
 
-    //commentarios por id
-    public function show($id){
-        $comment=Comment::findOrFail($id);
-        return response()->json(['comment' => $comment]);
-    }
     //crear comentario
     public function store(Request $request){
-        try{
-             $request->validate([
+        try{    
+            $comment_date = Carbon::now();
+
+            $request->validate([
             'comment'=>'required|string',
-            'comment_date'=>'required|date',
             'user_id'=>'required|exists:users,id',
             'app_id'=>'required|exists:apps,id',
         ]);
         $comment=Comment::create([
             'comment'=>$request->comment,
-            'comment_date'=>$request->comment_date,
+            'comment_date'=>$comment_date,
             'user_id'=>$request->user_id,
             'app_id'=>$request->app_id,
             ]);

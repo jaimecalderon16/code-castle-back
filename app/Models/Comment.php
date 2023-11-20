@@ -14,7 +14,7 @@ class Comment extends Model
     {
         return $this->belongsTo(User::class,'user_id');
     }
-    public function apps()
+    public function app()
     {
         return $this->belongsTo(apps::class,'app_id');
     }
