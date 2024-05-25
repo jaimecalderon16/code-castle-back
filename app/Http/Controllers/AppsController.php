@@ -11,12 +11,19 @@ use Illuminate\Support\Facades\DB;
 
 class AppsController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         try {
-            
-            $apps = apps::all();
+            // Obtener los registros que tienen 'category_id' diferente de 1
+            if ($request->has('isVidegame') && !empty($request->query('isVidegame'))) {
 
+                $apps = apps::where('category_id', '=', 1)->get();
+            }else{
+                $apps = apps::where('category_id', '!=', 1)->get();
+            }
+
+
+            // Transformar los registros
             $transformedApps = $apps->map(function ($app) {
                 return [
                     'id' => $app->id,
@@ -28,21 +35,26 @@ class AppsController extends Controller
                     'user_id' => $app->user_id,
                     'comapy' => $app->company,
                     'version' => $app->version,
-                    'img_path' =>  str_replace('public', 'storage',$app->img_path),
+                    'img_path' => str_replace('public', 'storage', $app->img_path),
                 ];
             });
+
+            // Devolver la respuesta JSON con los datos transformados
             return response()->json(['message' => 'Consulta exitosa', 'apps' => $transformedApps], 200);
         } catch (\Exception $e) {
+            // Manejar excepciones y devolver un error en formato JSON
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
+
+
     public function search(Request $request)
     {
         try {
 
             $apps = apps::where('aplication_name', 'like', '%' . $request->name . '%')->get();
 
-            $transformedApps = $apps->map(function ($app) use ($qualification) {
+            $transformedApps = $apps->map(function ($app){
                 return [
                     'id' => $app->id,
                     'name' => $app->aplication_name,
@@ -65,7 +77,7 @@ class AppsController extends Controller
     public function downloadSave($id)
     {
         $data = apps::find($id); // Asumiendo que el modelo se llama 'App' y no 'apps'
-        
+
         if (!$data) {
             return response()->json(['error' => 'No se encontró la aplicación'], 404);
         }
@@ -90,7 +102,7 @@ class AppsController extends Controller
             "actualizacion" => $data->upload_date,
             "descargas" => $data->descargas,
             "tamaño" => $data->size,
-            "urlDescarga" => $data->download_link,      
+            "urlDescarga" => $data->download_link,
             "tags" => $data->tags,
             "requerimientos" => $data->requirements,
             "descargas" => $data->n_downloads ?? 0,
@@ -110,29 +122,38 @@ class AppsController extends Controller
                 'version' => 'required|string',
                 'company' => 'required|string',
                 'imgFile' => 'required|File',
-                'download_link' => 'required|url',
+                'appFile' => 'required|File',
                 'user_id' => 'required|exists:users,id',
-                'size' => 'required|string',
                 'requirements' => 'required|string',
             ]);
 
             $fileImg = $request->file('imgFile');
-            $fileName = uniqid() . '.' . $fileImg->getClientOriginalExtension();
+            $fileNameImg = uniqid() . '.' . $fileImg->getClientOriginalExtension();
 
             // Almacenar la imagen en la carpeta storage/app
-            $filePath = $fileImg->storeAs('public', $fileName);
+            $filePath = $fileImg->storeAs('public', $fileNameImg);
+
+            $fileApp = $request->file('appFile');
+            $fileNameApp = uniqid() . '.' . $fileApp->getClientOriginalExtension();
+
+            // Almacenar la app en la carpeta storage/app
+            $filePathApp = $fileApp->storeAs('public', $fileNameApp);
+            $fileSize = $fileApp->getSize();
+            $fileSizeMB = $fileSize / (1024 * 1024);
 
             $app = apps::create([
                 'aplication_name' => $request->input('application_name'),
                 'description' => $request->input('description'),
-                'download_link' => $request->input('download_link'),
                 'version' => $request->input('version'),
                 'company' => $request->input('company'),
                 'upload_date' => $date,
-                'img_path' => $filePath,
+                'img_path' => str_replace('public', 'storage',$filePath),
+                'download_link' => str_replace('public', 'storage',$filePathApp),
                 'user_id' => $request->input('user_id'),
                 'requirements' => $request->input('requirements'),
-                'size' => $request->input('size'),
+                'category_id' => $request->input('categoria_id'),
+                'requirements' => $request->input('requirements'),
+                'size' => $fileSizeMB,
             ]);
 
             $tags = $request->input('tags');
@@ -144,7 +165,7 @@ class AppsController extends Controller
                 $tagModel->app_id = $app->id;
                 $tagModel->save();
             }
-            
+
             DB::commit();
             return response()->json(['message' => 'aplicacion creada correctamente', 'data' => $app], 201);
         } catch (\Exception $e) {
@@ -152,14 +173,13 @@ class AppsController extends Controller
         }
     }
 
-   
+
 public function update(Request $request, $id)
 {
     try {
         $request->validate([
             'application_name' => 'required|string|max:255',
             'description' => 'required|string',
-            'download_link' => 'required|url',
             'qualification' => 'required|numeric|min:0|max:5',
             'upload_date' => 'required|date',
             'n_downloads' => 'required|integer|min:0',
